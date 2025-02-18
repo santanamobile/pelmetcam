@@ -1,9 +1,12 @@
-#Pelmetcam - software for my raspberry pi powered helmet cam
+#!/bin/env python3
+# Pelmetcam - software for my raspberry pi powered helmet cam
+
 from GPSController import *
-from tempSensorController import *
 from createDataOverlay import *
 import RPi.GPIO as GPIO
-import picamera
+from picamera2 import Picamera2, Preview
+from picamera2.encoders import H264Encoder
+from libcamera import Transform
 import time
 import datetime
 import threading
@@ -11,17 +14,22 @@ import os
 import argparse
 
 # constants
-VIDEOFPS = 25
-VIDEOHEIGHT = 1080
+VIDEOFPS = 25.0
 VIDEOWIDTH = 1920
+VIDEOHEIGHT = 1080
 SLOWFLASHTIMES = [2,2]
 FASTFLASHTIMES = [0.5,0.5]
 BUTTONSHORTPRESSTICKS = 5
 BUTTONLONGPRESSTICKS = 200
 BUTTONTICKTIME = 0.01
-TEMPSENSORID = "28-000003aaea41"
 BUTTONGPIOPIN = 22
 LEDGPIOPIN = 17
+
+frame_counter = 0
+
+def frame_callback(request):
+    global frame_counter
+    frame_counter += 1
 
 # class for managing the Button
 class ButtonControl(threading.Thread):
@@ -39,7 +47,7 @@ class ButtonControl(threading.Thread):
         self.longPressTicks = longPressTicks
         self.tickTime = tickTime
         #init gpio
-        GPIO.setup(self.gpioPin, GPIO.IN)
+        GPIO.setup(self.gpioPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         
     def get(self):
         return GPIO.input(self.gpioPin)
@@ -173,13 +181,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pelmetcam")
     parser.add_argument("path", help="The location of the data directory")
     parser.add_argument("-d", "--dataoverlay", action="store_true", help="Output data overlay images at runtime")
+    #parser.add_argument("-i", "--image-type", action="store_true", help="Output image type: <j - JPEG, p - PNG>")
     args = parser.parse_args()
     
     try:
 
-        print "Starting pi powered helmet cam"
-        print "Data path - " + args.path
-        print "Data overlay - " + str(args.dataoverlay)
+        print ("Starting pi powered helmet cam")
+        print ("Data path - " + args.path)
+        print ("Data overlay - " + str(args.dataoverlay))
         
         #set gpio mode
         GPIO.setmode(GPIO.BCM)
@@ -190,22 +199,22 @@ if __name__ == "__main__":
         #create button
         button = ButtonControl(BUTTONGPIOPIN, 0, BUTTONSHORTPRESSTICKS, BUTTONLONGPRESSTICKS, BUTTONTICKTIME)
         button.start()
-        print "Button - started controller"
+        print ("Button - started controller")
 
         #start gps controller
         gpscontrol = GpsController()
         gpscontrol.start()
-        print "GPS - started controller"
+        print ("GPS - started controller")
 
         #start temp sensor controller, 3 second refresh
-        tempcontrol = TempSensorController(TEMPSENSORID, 3)
-        tempcontrol.start()
-        print "Temp - started controller"
+        #tempcontrol = TempSensorController(TEMPSENSORID, 3)
+        #tempcontrol.start()
+        #print ("Temp - started controller")
 
         #get the current fix and set the LED status
         gpsFixMode = updateGPSFixLED(0, gpscontrol.fix.mode, led)
         
-        print "Pelmetcam Ready"
+        print ("Pelmetcam Ready")
 
         #while the button hasnt received a long press (shutdown), keep on looping
         while(button.checkLastPressedState() != button.ButtonPressStates.LONGPRESS):
@@ -227,7 +236,7 @@ if __name__ == "__main__":
                     currenttime = datetime.datetime.now()
                 foldername = args.path + "/" + "{0:02d}".format(currenttime.year) + "{0:02d}".format(currenttime.month) + "{0:02d}".format(currenttime.day) + "{0:02d}".format(currenttime.hour) + "{0:02d}".format(currenttime.minute) + "{0:02d}".format(currenttime.second)
                 if not os.path.exists(foldername): os.makedirs(foldername)
-                print "Data - folder created - " + foldername
+                print ("Data - folder created - " + foldername)
                 
                 #create data file
                 datafile = open(foldername+"/data.csv", "w")
@@ -237,29 +246,45 @@ if __name__ == "__main__":
                 
                 #start recording
                 #create picamera - dont use LED (my fork of picamera supports this)
-                with picamera.PiCamera(False) as camera:
+                with Picamera2() as camera:
                     #turn LED on
                     led.on()
 
                     #setup camera
-                    camera.resolution = (VIDEOWIDTH, VIDEOHEIGHT)
-                    camera.framerate = VIDEOFPS
-                    camera.vflip = True
-                    camera.hflip = True
-                    camera.video_stabilization = True
+                    camera.post_callback = frame_callback
+                    camera.video_configuration.controls.FrameRate = VIDEOFPS
+                    video_config = camera.create_video_configuration(main={"size": (VIDEOWIDTH, VIDEOHEIGHT)}, lores={"size": (320, 240)}, display="lores")
+                    camera.configure (video_config)
+                    #camera.set_controls ({"AeEnable": True, "AeExposureMode": controls.AeConstraintModeEnum.Short, "AfMode": controls.AeExposureModeEnum.Auto})
+                    camera.set_controls ({"AeEnable": True})
+
+                    camera.start_preview(Preview.DRM,
+                        x=0, y=0,
+                        width=320, height=240,
+                        transform=Transform(hflip=1, vflip=0))
+
+                    #camera.video_configuration.controls.FrameRate = VIDEOFPS
+                    #camera.video_configuration.controls.FrameRate = 25.0
+                    #camera.video_stabilization = True
                     
                     #start recording
-                    camera.start_recording(foldername+"/vid.h264", inline_headers=False)
-                    print "Recording - started pi camera"
+                    print ("Recorder: Started")
+                    #encoder = H264Encoder(bitrate=10000000)
+                    #output = foldername + "/video.h264"
+                    #camera.start_recording(encoder, output)
+                    output = foldername + "/video.mp4"
+                    camera.start_and_record_video(output)
 
                     # wait for the button to be pressed
                     while(button.checkLastPressedState() == button.ButtonPressStates.NOTPRESSED):
                         #get frame number
-                        framenumber = camera.frame
+                        #framenumber = camera.frame
+                        #framenumber = 9
                         #wait for a bit, the GPS data is a little behind + give the processor a rest
                         time.sleep(0.1)
                         #record data
-                        dataString = str(framenumber) + "," 
+                        #dataString = str(framenumber) + "," 
+                        dataString = str(frame_counter) + "," 
                         dataString += str(gpscontrol.fix.mode) + "," 
                         dataString += str(gpscontrol.fixdatetime) + "," 
                         dataString += str(gpscontrol.fix.time) + "," 
@@ -269,10 +294,10 @@ if __name__ == "__main__":
                         dataString += str(gpscontrol.fix.speed) + ","
                         dataString += str(gpscontrol.fix.track) + ","
                         dataString += str(gpscontrol.fix.climb) + ","
-                        dataString += str(tempcontrol.temperature.C) + ","
-                        dataString += str(tempcontrol.temperature.F) + "\n"
+                        dataString += str(0.0) + ","
+                        dataString += str(0.0) + "\n"
                         datafile.write(dataString)
-                        #debug, print data to screen
+                        #debug, print (data to screen
                         #print(dataString)
                         if args.dataoverlay:
                             dataitems = dataString.split(",")
@@ -297,7 +322,9 @@ if __name__ == "__main__":
                     led.off()
 
                     #recording has finished
-                    print "Recording - stopped"
+                    print ("Recorder: Stopped")
+                
+                print(f"Total frames recorded: {frame_counter}")
 
                 #close data file
                 datafile.close()
@@ -311,31 +338,31 @@ if __name__ == "__main__":
             #wait for a bit
             time.sleep(0.1)
             #debug, dots to see code is running
-            #print "."
+            #print ("."
         
     except KeyboardInterrupt:
-        print "User Cancelled (Ctrl C)"
+        print ("User Cancelled (Ctrl C)")
         
     except:
-        print "Unexpected error - ", sys.exc_info()[0], sys.exc_info()[1]
+        print ("Unexpected error - ", sys.exc_info()[0], sys.exc_info()[1])
         raise
     
     finally:
-        print "Stopping Pelmetcam"
+        print ("Stopping Pelmetcam")
         #shutdown temp controller
-        tempcontrol.stopController()
-        tempcontrol.join()
-        print "Temp - Stopped controller"
+        #tempcontrol.stopController()
+        #tempcontrol.join()
+        #print ("Temp - Stopped controller")
         #shutdown gps controller
         gpscontrol.stopController()
         gpscontrol.join()
-        print "GPS - Stopped controller"
+        print ("GPS - Stopped controller")
         #stop button
         button.stopController()
         button.join()
-        print "Button - Stopped controller"
+        print ("Button - Stopped controller")
         #turn off led
         led.off()
         #cleanup gpio
         GPIO.cleanup()
-        print "Stopped"
+        print ("Stopped")

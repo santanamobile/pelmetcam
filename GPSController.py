@@ -68,38 +68,38 @@ if __name__ == '__main__':
         gpsc.start() # start it up
         while True:
             
-            print "latitude ", gpsc.fix.latitude
-            print "longitude ", gpsc.fix.longitude
-            print "time utc ", gpsc.utc, " + ", gpsc.gpsd.fix.time
-            print "altitude (m)", gpsc.fix.altitude
-            #print "eps ", gpsc.gpsd.fix.eps
-            #print "epx ", gpsc.gpsd.fix.epx
-            #print "epv ", gpsc.gpsd.fix.epv
-            #print "ept ", gpsc.gpsd.fix.ept
-            print "speed (m/s) ", gpsc.fix.speed
-            print "track ", gpsc.gpsd.fix.track
-            print "mode ", gpsc.gpsd.fix.mode
-            #print "sats ", gpsc.satellites
-            print "climb ", gpsc.fix.climb
-            print gpsc.fixdatetime
+            print ("latitude ", gpsc.fix.latitude)
+            print ("longitude ", gpsc.fix.longitude)
+            print ("time utc ", gpsc.utc, " + ", gpsc.gpsd.fix.time)
+            print ("altitude (m)", gpsc.fix.altitude)
+            #print ("eps ", gpsc.gpsd.fix.eps)
+            #print ("epx ", gpsc.gpsd.fix.epx)
+            #print ("epv ", gpsc.gpsd.fix.epv)
+            #print ("ept ", gpsc.gpsd.fix.ept)
+            print ("speed (m/s) ", gpsc.fix.speed)
+            print ("track ", gpsc.gpsd.fix.track)
+            print ("mode ", gpsc.gpsd.fix.mode)
+            #print ("sats ", gpsc.satellites)
+            print ("climb ", gpsc.fix.climb)
+            print (gpsc.fixdatetime)
             x,y = GpsUtils.latLongToXY(gpsc.fix.latitude, gpsc.fix.longitude)
-            print "x", x
-            print "y", y
+            print ("x", x)
+            print ("y", y)
             time.sleep(0.5)
 
     #Ctrl C
     except KeyboardInterrupt:
-        print "User cancelled"
+        print ("User cancelled")
 
     #Error
     except:
-        print "Unexpected error:", sys.exc_info()[0]
+        print ("Unexpected error:", sys.exc_info()[0])
         raise
 
     finally:
-        print "Stopping gps controller"
+        print ("Stopping gps controller")
         gpsc.stopController()
         #wait for the tread to finish
         gpsc.join()
         
-    print "Done"
+    print ("Done")

@@ -13,7 +13,7 @@ MAP_POSTOP = 5
 MAP_WIDTH = 240
 MAP_HEIGHT = 240
 MAX_SCALE = 1
-FONT_PATH = "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf"
+FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
 FONT_SIZE = 38
 
 TEXTCOLOUR = "black"
@@ -65,8 +65,10 @@ class DataDrawer():
                 os.symlink(self.imagesFolder + "/" + "{0:06d}".format(self.lastFrameNo) + ".jpg",
                            self.imagesFolder + "/" + "{0:06d}".format(missingFrameNo) + ".jpg")
 
-            #create new image
-            frame = Image.new("RGBA", (DATAFRAME_WIDTH, DATAFRAME_HEIGHT), BACKGROUNDCOLOUR)
+            #create new PNG image
+            #frame = Image.new("RGBA", (DATAFRAME_WIDTH, DATAFRAME_HEIGHT), BACKGROUNDCOLOUR)
+            # Create new JPEG image
+            frame = Image.new("RGB", (DATAFRAME_WIDTH, DATAFRAME_HEIGHT), BACKGROUNDCOLOUR)
             frameDraw = ImageDraw.Draw(frame)
 
             #data
@@ -106,9 +108,9 @@ class DataDrawer():
                 
                     #calculate scale
                     diffX = self.maxX - self.minX
-                    #print "diffX " + str(diffX)
+                    #print ("diffX " + str(diffX))
                     diffY = self.maxY - self.minY
-                    #print "diffY " + str(diffY)
+                    #print ("diffY " + str(diffY))
                     if diffX > diffY: 
                         if diffX != 0: self.mapScale = MAP_WIDTH / float(diffX)
                         else: self.mapScale = 1
@@ -116,7 +118,7 @@ class DataDrawer():
                         if diffY != 0: self.mapScale = MAP_HEIGHT / float(diffY)
                         else: self.mapScale = 1
                 
-                    #print "mapScale " + str(self.mapScale)
+                    #print ("mapScale " + str(self.mapScale))
 
                     #set max scale
                     if self.mapScale > MAX_SCALE: self.mapScale = MAX_SCALE 
@@ -127,19 +129,21 @@ class DataDrawer():
 
                 #draw map box
                 frameDraw.rectangle((MAP_POSLEFT, MAP_POSTOP, MAP_POSLEFT + MAP_WIDTH, MAP_POSTOP + MAP_HEIGHT), outline=BOXCOLOUR, fill=BOXCOLOUR)
+                # PNG
+                # frameDraw.rectangle((MAP_POSLEFT, MAP_POSTOP, MAP_POSLEFT + MAP_WIDTH, MAP_POSTOP + MAP_HEIGHT), outline=BOXFRAME, fill=(255,0,0,0))
                 #frameDraw.rectangle((0,250,50,300), outline="red", fill="red")
 
                 #draw lines
-                #print len(self.xyPositions)
+                #print (len(self.xyPositions))
                 for position in range(1, len(self.xyPositions)):
-                    #print self.xyPositions[position-1]
-                    #print self.xyPositions[position]
+                    #print (self.xyPositions[position-1])
+                    #print (self.xyPositions[position])
                     #draw line between previous position and this one
                     x1 = MAP_POSLEFT + self.padX + abs((self.xyPositions[position-1][0] * self.mapScale) - (self.minX * self.mapScale))
                     y1 = MAP_POSTOP + self.padY + abs((self.xyPositions[position-1][1] * self.mapScale) - (self.maxY * self.mapScale))
                     x2 = MAP_POSLEFT + self.padX + abs((self.xyPositions[position][0] * self.mapScale) - (self.minX * self.mapScale))
                     y2 = MAP_POSTOP + self.padY + abs((self.xyPositions[position][1] * self.mapScale) - (self.maxY * self.mapScale))
-                    #print "coords - " + str(x1) + " " + str(y1) + " " + str(x2) + " " + str(y2)
+                    #print ("coords - " + str(x1) + " " + str(y1) + " " + str(x2) + " " + str(y2))
                     frameDraw.line((x1, y1, x2, y2), fill=LINECOLOUR, width=3)
 
                 #draw start and end point

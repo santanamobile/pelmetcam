@@ -85,24 +85,24 @@ if __name__ == "__main__":
         tempcontrol.start()
         #loop forever, wait for Ctrl C
         while(True):
-            print tempcontrol.temperature.C 
-            print tempcontrol.temperature.F 
+            print (tempcontrol.temperature.C)
+            print (tempcontrol.temperature.F)
             time.sleep(5)
     #Ctrl C
     except KeyboardInterrupt:
-        print "Cancelled"
+        print ("Cancelled")
     
     #Error
     except:
-        print "Unexpected error:", sys.exc_info()[0]
+        print ("Unexpected error:", sys.exc_info()[0])
         raise
 
     #if it finishes or Ctrl C, shut it down
     finally: 
-        print "Stopping temp sensor controller"
+        print ("Stopping temp sensor controller")
         #stop the controller
         tempcontrol.stopController()
         #wait for the tread to finish if it hasn't already
         tempcontrol.join()
         
-    print "Done"
+    print ("Done")
